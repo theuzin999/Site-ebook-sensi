@@ -11,22 +11,40 @@ from firebase_admin import credentials
 from firebase_admin import db
 import os
 import pytz 
-import json
+import json # Necessário para ler o JSON da variável de ambiente
 
+# =============================================================
+# 🔥 CONFIGURAÇÃO FIREBASE (CORRIGIDA PARA VARIÁVEL DE AMBIENTE)
+# =============================================================
 DATABASE_URL = os.getenv("DATABASE_URL")
-credJson = os.getenv("SERVICE_ACCOUNT_KEY")
+credJson = os.getenv("SERVICE_ACCOUNT_KEY") # Chave JSON como string
+
+# 🛑 LINHAS DE DEBUG PARA IDENTIFICAR FALHA NA VARIÁVEL DE AMBIENTE 🛑
+print("DB_URL:", DATABASE_URL)
+print("KEY EXISTS:", credJson is not None)
+print("KEY SIZE:", len(str(credJson)) if credJson else 0)
+# ------------------------------------------------------------------
 
 try:
+    if credJson is None or not credJson.strip():
+        raise ValueError("SERVICE_ACCOUNT_KEY está vazia ou não configurada no ambiente.")
+        
+    # Tenta carregar o JSON da variável de ambiente SERVICE_ACCOUNT_KEY
     cred = credentials.Certificate(json.loads(credJson))
+    
+    # O RESTO DO SEU CÓDIGO DO FIREBASE...
     firebase_admin.initialize_app(cred, {
         "databaseURL": DATABASE_URL
     })
     print("✅ Firebase Admin SDK inicializado com sucesso.")
 except Exception as e:
-    print(f"\n❌ ERRO DE CONEXÃO FIREBASE: {e}")
-    # Se o deploy falhar, o bot não deve parar aqui
-    # exit() 
+    # O bot não vai parar, mas o erro de Firebase será impresso.
+    print(f"\n❌ ERRO CRÍTICO DE CONEXÃO FIREBASE: {e}")
+    print("⚠️ Por causa da falha no Firebase, os multiplicadores NÃO SERÃO SALVOS no banco de dados.")
 
+# =============================================================
+# ⚙️ VARIÁVEIS PRINCIPAIS
+# =============================================================
 URL_DO_SITE = "https://www.goathbet.com"
 LINK_AVIATOR = "https://www.goathbet.com/game/spribe-aviator"
 COOKIES_FILE = "cookies.pkl" 
@@ -34,11 +52,14 @@ COOKIES_FILE = "cookies.pkl"
 EMAIL = os.getenv("EMAIL")
 PASSWORD = os.getenv("PASSWORD")
 
-POLLING_INTERVAL = 1.0
-INTERVALO_MINIMO_ENVIO = 2.0
-TEMPO_MAX_INATIVIDADE = 360
+POLLING_INTERVAL = 1.0          # Intervalo entre as checagens (1 segundo)
+INTERVALO_MINIMO_ENVIO = 2.0    # Mínimo de tempo entre dois envios (segundos)
+TEMPO_MAX_INATIVIDADE = 360     # 6 minutos (360 segundos)
 TZ_BR = pytz.timezone("America/Sao_Paulo")
 
+# =============================================================
+# 🔧 FUNÇÕES AUXILIARES
+# =============================================================
 def getColorClass(value):
     m = float(value)
     if 1.0 <= m < 2.0:
@@ -65,6 +86,7 @@ def safe_find(driver, by, value, timeout=5):
 
 
 def initialize_game_elements(driver):
+    """Localiza iframe e histórico do Aviator (Sua lista robusta mantida)."""
     POSSIVEIS_IFRAMES = [
         '//iframe[contains(@src, "/aviator/")]',
         '//iframe[contains(@src, "spribe")]',
@@ -123,6 +145,7 @@ def initialize_game_elements(driver):
     return iframe, historico_elemento 
 
 def process_login(driver):
+    """Executa o fluxo de login e navegação para o Aviator."""
     if not EMAIL or not PASSWORD:
         print("❌ ERRO: EMAIL ou PASSWORD não configurados.")
         return False
@@ -174,7 +197,11 @@ def process_login(driver):
     
     return True
 
+# =============================================================
+# 🚀 FUNÇÃO DE INICIALIZAÇÃO DO DRIVER (CORRIGIDA PARA DOCKER)
+# =============================================================
 def start_driver():
+    """Inicializa o driver apontando para o Chromium do sistema."""
     options = webdriver.ChromeOptions()
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
@@ -185,18 +212,24 @@ def start_driver():
     options.add_argument("--disable-features=BlinkGenPropertyTrees")
     options.add_argument("--window-size=1920,1080")
 
-    # CORREÇÃO CRÍTICA: Aponta para os binários instalados pelo Dockerfile
+    # Aponta para o binário do Chromium instalado pelo Dockerfile
     options.binary_location = os.environ.get("CHROME_BIN", "/usr/bin/chromium") 
+    
+    # Aponta para o ChromeDriver do sistema
     service = Service(executable_path=os.environ.get("CHROME_DRIVER_PATH", "/usr/bin/chromedriver"))
     
     return webdriver.Chrome(service=service, options=options)
 
 
+# =============================================================
+# 🤖 LOOP PRINCIPAL DO BOT
+# =============================================================
 def start_bot(relogin_done_for: date = None):
     print("\n==============================================")
     print("         INICIALIZANDO GOATHBOT")
     print("==============================================")
     
+    # Tenta inicializar o driver
     try:
         driver = start_driver()
     except Exception as e:
@@ -231,6 +264,7 @@ def start_bot(relogin_done_for: date = None):
         try:
             now_br = datetime.now(TZ_BR)
 
+            # Lógica de Reinício Diário Programado
             if now_br.hour == 23 and now_br.minute >= 59 and (relogin_done_for != now_br.date()):
                 print(f"🕛 REINÍCIO PROGRAMADO: Fechando bot às {now_br.strftime('%H:%M:%S')} para reabrir após 00:00.")
                 driver.quit()
@@ -238,11 +272,13 @@ def start_bot(relogin_done_for: date = None):
                 sleep(60) 
                 return start_bot(relogin_done_for=now_br.date()) 
 
+            # Lógica de Inatividade
             if (time() - ULTIMO_MULTIPLIER_TIME) > TEMPO_MAX_INATIVIDADE:
                  print(f"🚨 Inatividade por mais de 6 minutos! Último envio em: {datetime.fromtimestamp(ULTIMO_MULTIPLIER_TIME).strftime('%H:%M:%S')}. Reiniciando o bot...")
                  driver.quit()
                  return start_bot()
 
+            # Tenta trocar para o iframe do jogo
             try:
                 driver.switch_to.frame(iframe) 
             except Exception:
@@ -253,6 +289,7 @@ def start_bot(relogin_done_for: date = None):
                     driver.quit()
                     return start_bot() 
 
+            # === LEITURA DOS RESULTADOS ===
             resultados_texto = hist.text.strip() if hist else ""
             if not resultados_texto:
                 falhas += 1
@@ -266,6 +303,7 @@ def start_bot(relogin_done_for: date = None):
             
             falhas = 0
 
+            # Processa e filtra os multiplicadores
             resultados = []
             seen = set()
             for n in resultados_texto.split("\n"):
@@ -279,6 +317,7 @@ def start_bot(relogin_done_for: date = None):
                 except ValueError:
                     pass
 
+            # Salva o novo resultado no Firebase
             if resultados:
                 novo = resultados[0] 
                 if (novo != LAST_SENT) and ((time() - ULTIMO_ENVIO) > INTERVALO_MINIMO_ENVIO):
@@ -295,16 +334,18 @@ def start_bot(relogin_done_for: date = None):
                     entry_key = f"{date_str}_{time_key}_{raw}x".replace(':', '-').replace('.', '-')
                     entry = {"multiplier": raw, "time": time_display, "color": color, "date": date_str}
                     
+                    # Tenta salvar no Firebase (só funcionará se o Firebase foi inicializado com sucesso)
                     try:
                         db.reference(f"history/{entry_key}").set(entry)
                         print(f"🔥 {raw}x salvo às {time_display}")
                     except Exception as e:
-                        print("⚠️ Erro ao salvar:", e)
+                        print("⚠️ Erro ao salvar (Firebase pode não ter sido inicializado):", e)
                         
                     LAST_SENT = novo
                     ULTIMO_ENVIO = time()
                     ULTIMO_MULTIPLIER_TIME = time()
             
+            # Volta para o conteúdo principal antes de esperar o polling (boa prática)
             driver.switch_to.default_content()
             sleep(POLLING_INTERVAL)
 
@@ -319,6 +360,9 @@ def start_bot(relogin_done_for: date = None):
             sleep(3)
             continue
 
+# =============================================================
+# ▶️ INÍCIO DO SCRIPT
+# =============================================================
 if __name__ == "__main__":
     if not EMAIL or not PASSWORD:
         print("\n❗ Configure as variáveis de ambiente EMAIL e PASSWORD ou defina-as diretamente no código.")
