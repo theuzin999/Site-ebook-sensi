@@ -86,20 +86,23 @@ def initialize_game_elements(driver):
     ]
     
     POSSIVEIS_HISTORICOS = [
-        ('.rounds-history', By.CSS_SELECTOR),
-        ('.history-list', By.CSS_SELECTOR),
-        ('.multipliers-history', By.CSS_SELECTOR),
-        ('.result-history', By.CSS_SELECTOR),
-        ('[data-testid="history"]', By.CSS_SELECTOR),
-        ('.game-history', By.CSS_SELECTOR),
-        ('.bet-history', By.CSS_SELECTOR),
-        ('div[class*="recent-list"]', By.CSS_SELECTOR),
-        ('ul.results-list', By.CSS_SELECTOR),
-        ('div.history-block', By.CSS_SELECTOR),
-        ('div[class*="history-container"]', By.CSS_SELECTOR),
-        ('//div[contains(@class, "history")]', By.XPATH),
-        ('//div[contains(@class, "rounds-list")]', By.XPATH)
-    ]
+    ('.rounds-history', By.CSS_SELECTOR),
+    ('div[data-test="history-list"]', By.CSS_SELECTOR),  # novo mais usado em headless
+    ('div.history', By.CSS_SELECTOR),                    # fallback genérico
+    ('.history-list', By.CSS_SELECTOR),
+    ('.multipliers-history', By.CSS_SELECTOR),
+    ('.result-history', By.CSS_SELECTOR),
+    ('[data-testid="history"]', By.CSS_SELECTOR),
+    ('.game-history', By.CSS_SELECTOR),
+    ('.bet-history', By.CSS_SELECTOR),
+    ('div[class*="recent-list"]', By.CSS_SELECTOR),
+    ('ul.results-list', By.CSS_SELECTOR),
+    ('div.history-block', By.CSS_SELECTOR),
+    ('div[class*="history-container"]', By.CSS_SELECTOR),
+    ('//div[contains(@class, "history")]', By.XPATH),
+    ('//div[contains(@class, "rounds-list")]', By.XPATH)
+]
+
 
     iframe = None
     for xpath in POSSIVEIS_IFRAMES:
@@ -109,6 +112,9 @@ def initialize_game_elements(driver):
                 EC.presence_of_element_located((By.XPATH, xpath))
             )
             driver.switch_to.frame(iframe)
+            driver.switch_to.frame(iframe)
+            sleep(5)  # importante para headless cloud (spribe demora para renderizar histórico)
+
             print(f"✅ Iframe encontrado com XPath: {xpath}")
             break
         except Exception:
