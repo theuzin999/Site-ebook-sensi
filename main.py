@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
@@ -13,10 +14,10 @@ import os
 import pytz
 
 # =============================================================
-# 🔥 FIREBASE VIA ARQUIVO (SquareCloud)
+# 🔥 FIREBASE (serviceAccountKey.json na RAIZ do projeto)
 # =============================================================
-SERVICE_ACCOUNT_FILE = "serviceAccountKey.json"  # precisa estar na raiz do projeto
-DATABASE_URL = os.getenv("DATABASE_URL")  # apenas isso vem por ENV
+SERVICE_ACCOUNT_FILE = "serviceAccountKey.json"  # precisa estar na raiz
+DATABASE_URL = os.getenv("DATABASE_URL")         # defina no painel
 
 try:
     if not firebase_admin._apps:
@@ -33,31 +34,28 @@ except Exception as e:
 # =============================================================
 # ⚙️ VARS
 # =============================================================
-URL_DO_SITE = "https://www.goathbet.com"
-LINK_AVIATOR = "https://www.goathbet.com/game/spribe-aviator"
+URL_DO_SITE   = "https://www.goathbet.com"
+LINK_AVIATOR  = "https://www.goathbet.com/game/spribe-aviator"
 
-EMAIL = os.getenv("EMAIL")
+EMAIL    = os.getenv("EMAIL")
 PASSWORD = os.getenv("PASSWORD")
 
-POLLING_INTERVAL = 1.0
-INTERVALO_MINIMO_ENVIO = 2.0
-TEMPO_MAX_INATIVIDADE = 360
+POLLING_INTERVAL        = 1.0    # seg entre leituras
+INTERVALO_MINIMO_ENVIO  = 2.0    # anti-spam
+TEMPO_MAX_INATIVIDADE   = 360    # 6 min
 TZ_BR = pytz.timezone("America/Sao_Paulo")
 
 # =============================================================
 # 🔧 HELPERS
 # =============================================================
-def getColorClass(value):
+def getColorClass(value: float):
     m = float(value)
-    if 1.0 <= m < 2.0:
-        return "blue-bg"
-    if 2.0 <= m < 10.0:
-        return "purple-bg"
-    if m >= 10.0:
-        return "magenta-bg"
+    if 1.0 <= m < 2.0:  return "blue-bg"
+    if 2.0 <= m < 10.0: return "purple-bg"
+    if m >= 10.0:       return "magenta-bg"
     return "default-bg"
 
-def safe_click(driver, by, value, timeout=5):
+def safe_click(driver, by, value, timeout=6):
     try:
         el = WebDriverWait(driver, timeout).until(EC.element_to_be_clickable((by, value)))
         el.click()
@@ -65,7 +63,7 @@ def safe_click(driver, by, value, timeout=5):
     except Exception:
         return False
 
-def safe_find(driver, by, value, timeout=5):
+def safe_find(driver, by, value, timeout=8):
     try:
         return WebDriverWait(driver, timeout).until(EC.presence_of_element_located((by, value)))
     except Exception:
@@ -83,17 +81,17 @@ def process_login(driver):
     driver.get(URL_DO_SITE)
     sleep(2)
 
-    # maior de idade
+    # maior de 18 (se aparecer)
     safe_click(driver, By.CSS_SELECTOR, 'button[data-age-action="yes"]', 5)
 
-    # janela de login
-    if not safe_click(driver, By.CSS_SELECTOR, 'a[data-ix="window-login"].btn-small.w-button', 8):
+    # abrir janela de login
+    if not safe_click(driver, By.CSS_SELECTOR, 'a[data-ix="window-login"].btn-small.w-button', 10):
         print("❌ Botão 'Login' inicial não encontrado.")
         return False
-    sleep(1)
+    sleep(0.6)
 
-    email_input = safe_find(driver, By.ID, "field-15", 8)
-    pass_input  = safe_find(driver, By.ID, "password-login", 8)
+    email_input = safe_find(driver, By.ID, "field-15", 10)
+    pass_input  = safe_find(driver, By.ID, "password-login", 10)
     if not (email_input and pass_input):
         print("⚠️ Campos de login não encontrados!")
         return False
@@ -102,7 +100,7 @@ def process_login(driver):
     pass_input.clear();  pass_input.send_keys(PASSWORD)
     sleep(0.4)
 
-    if not safe_click(driver, By.CSS_SELECTOR, "a[login-btn].btn-small.btn-color-2.full-width.w-inline-block", 8):
+    if not safe_click(driver, By.CSS_SELECTOR, "a[login-btn].btn-small.btn-color-2.full-width.w-inline-block", 10):
         print("❌ Botão final de login não encontrado.")
         return False
 
@@ -114,17 +112,18 @@ def process_login(driver):
     print("✅ Cookies aceitos (se aplicável).")
 
     # abrir aviator
-    if safe_click(driver, By.CSS_SELECTOR, "img.slot-game", 4):
+    if safe_click(driver, By.CSS_SELECTOR, "img.slot-game", 5):
         print("✅ Aviator aberto via imagem.")
     else:
         driver.get(LINK_AVIATOR)
         print("ℹ️ Indo direto via link.")
-    sleep(18)  # headless precisa de mais tempo pra montar o jogo
 
+    # headless precisa de mais tempo pra montar o jogo/canvas
+    sleep(18)
     return True
 
 # =============================================================
-# 🖼️ IFAME + HISTÓRICO (dentro ou fora do iframe)
+# 🖼️ IFAME + HISTÓRICO (fora primeiro, depois dentro)
 # =============================================================
 def initialize_game_elements(driver):
     POSSIVEIS_IFRAMES = [
@@ -133,7 +132,7 @@ def initialize_game_elements(driver):
         '//iframe[contains(@src, "aviator-game")]'
     ]
 
-    # prioriza o que você usa local: .result-history
+    # Prioriza o que você usa local (.result-history) + fallbacks
     POSSIVEIS_HISTORICOS = [
         ('.result-history', By.CSS_SELECTOR),
         ('.rounds-history', By.CSS_SELECTOR),
@@ -148,11 +147,11 @@ def initialize_game_elements(driver):
         ('div.history-block', By.CSS_SELECTOR),
         ('div[class*="history-container"]', By.CSS_SELECTOR),
         ('//div[contains(@class, "history")]', By.XPATH),
-        ('//div[contains(@class, "rounds-list")]', By.XPATH)
+        ('//div[contains(@class, "rounds-list")]', By.XPATH),
     ]
 
+    # 1) Achar iframe (tenta 2 passadas)
     iframe = None
-    # tenta achar iframe (1ª passada)
     for xpath in POSSIVEIS_IFRAMES:
         try:
             driver.switch_to.default_content()
@@ -162,12 +161,11 @@ def initialize_game_elements(driver):
             driver.switch_to.frame(iframe)
             sleep(5)  # tempo pra spribe montar DOM
             print(f"✅ Iframe encontrado com XPath: {xpath}")
-            driver.switch_to.default_content()  # <- CORRETO: voltar ao DOM principal ANTES do break
+            driver.switch_to.default_content()  # VOLTA PRO DOM PRINCIPAL ANTES DO BREAK
             break
         except Exception:
             continue
 
-    # fallback: tenta mais uma passada se não achou
     if not iframe:
         sleep(5)
         for xpath in POSSIVEIS_IFRAMES:
@@ -179,39 +177,39 @@ def initialize_game_elements(driver):
                 driver.switch_to.frame(iframe)
                 sleep(5)
                 print(f"✅ Iframe encontrado na 2ª tentativa: {xpath}")
-                driver.switch_to.default_content()  # <- idem aqui
+                driver.switch_to.default_content()  # idem aqui
                 break
             except Exception:
                 continue
 
-    # === PROCURAR HISTÓRICO FORA DO IFRAME PRIMEIRO ===
-driver.switch_to.default_content()
-historico_elemento = None
-for selector, by_method in POSSIVEIS_HISTORICOS:
-    try:
-        historico_elemento = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((by_method, selector))
-        )
-        print(f"✅ Histórico (fora iframe): {selector}")
-        break
-    except:
-        continue
+    # 2) PROCURAR HISTÓRICO FORA DO IFRAME (padrão cloud da GoathBet)
+    driver.switch_to.default_content()
+    historico_elemento = None
+    for selector, by_method in POSSIVEIS_HISTORICOS:
+        try:
+            historico_elemento = WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((by_method, selector))
+            )
+            print(f"✅ Histórico (fora iframe): {selector} ({'css' if by_method==By.CSS_SELECTOR else 'xpath'})")
+            break
+        except Exception:
+            continue
 
-# === se não achou fora, tenta dentro do iframe ===
-if not historico_elemento and iframe:
-    try:
-        driver.switch_to.frame(iframe)
-        for selector, by_method in POSSIVEIS_HISTORICOS:
-            try:
-                historico_elemento = WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located((by_method, selector))
-                )
-                print(f"✅ Histórico (iframe): {selector}")
-                break
-            except:
-                continue
-    except:
-        pass
+    # 3) Se não achou fora, tentar DENTRO do iframe
+    if not historico_elemento and iframe is not None:
+        try:
+            driver.switch_to.frame(iframe)
+            for selector, by_method in POSSIVEIS_HISTORICOS:
+                try:
+                    historico_elemento = WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((by_method, selector))
+                    )
+                    print(f"✅ Histórico (iframe): {selector} ({'css' if by_method==By.CSS_SELECTOR else 'xpath'})")
+                    break
+                except Exception:
+                    continue
+        except Exception:
+            pass
 
     if not historico_elemento:
         print("⚠️ Nenhum seletor de histórico encontrado!")
@@ -221,21 +219,46 @@ if not historico_elemento and iframe:
     return iframe, historico_elemento
 
 # =============================================================
-# 🧪 DRIVER (usa Chromium/Chromedriver do container)
+# 🧪 DRIVER (Chromium/Chromedriver do container)
+#   Tenta ler paths via ENV e cai para defaults comuns (v2/v3)
 # =============================================================
+def _pick(path_env, candidates):
+    """Escolhe o primeiro path existente dentre ENV ou candidatos."""
+    p = os.environ.get(path_env, "").strip()
+    if p and os.path.exists(p): return p
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    # retorna o primeiro candidato mesmo que não exista (para não quebrar)
+    return candidates[0]
+
 def start_driver():
     options = webdriver.ChromeOptions()
+
+    # flags para headless “real” (WebGL/SwiftShader)
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--disable-software-rasterizer")
     options.add_argument("--remote-debugging-port=9222")
     options.add_argument("--disable-features=BlinkGenPropertyTrees")
+    options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument("--window-size=1920,1080")
+    options.add_argument("--window-position=0,0")
+    options.add_argument("--start-maximized")
+    options.add_argument("--enable-webgl")
+    options.add_argument("--use-gl=swiftshader")
 
-    options.binary_location = "/usr/bin/chromium"
-    service = Service("/usr/bin/chromedriver")
+    # paths (funciona tanto em imagens baseadas em Debian quanto Alpine)
+    chrome_bin = _pick(
+        "CHROME_BIN",
+        ["/usr/bin/chromium", "/usr/bin/chromium-browser", "/usr/bin/google-chrome"]
+    )
+    driver_bin = _pick(
+        "CHROME_DRIVER_PATH",
+        ["/usr/bin/chromedriver", "/usr/lib/chromium/chromedriver", "/usr/bin/chromedriver-linux64"]
+    )
+    options.binary_location = chrome_bin
+    service = Service(driver_bin)
 
     return webdriver.Chrome(service=service, options=options)
 
@@ -253,10 +276,10 @@ def start_bot(relogin_done_for: date = None):
         print(f"❌ ERRO AO INICIAR DRIVER: {e}")
         return
 
-    def setup_game(driver):
-        if not process_login(driver):
+    def setup_game(_driver):
+        if not process_login(_driver):
             return None, None
-        iframe, hist = initialize_game_elements(driver)
+        iframe, hist = initialize_game_elements(_driver)
         if not hist:
             print("❌ Não conseguiu iniciar o jogo. Tentando novamente...")
             return None, None
