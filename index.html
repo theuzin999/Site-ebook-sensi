@@ -9,7 +9,7 @@
     <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';</script>
 
     <style>
-        /* --- ESTILO GERAL E CORES (ROXO E PRETO) --- */
+        /* --- ESTILO GERAL --- */
         * {
             box-sizing: border-box;
             user-select: none;
@@ -92,12 +92,7 @@
             text-align: center;
         }
 
-        input[type="password"]:focus {
-            border-color: #bf00ff;
-            box-shadow: 0 0 10px #bf00ff;
-        }
-
-        button {
+        button.btn-login {
             width: 100%;
             padding: 12px;
             border: none;
@@ -111,64 +106,72 @@
             text-transform: uppercase;
         }
 
-        button:hover {
-            transform: scale(1.02);
-            box-shadow: 0 0 15px #8a2be2;
-        }
-
-        .error-msg {
-            color: #ff3333;
-            margin-top: 10px;
-            font-size: 14px;
-            display: none;
-        }
-
-        /* --- VISUALIZADOR DE PDF CORRIGIDO --- */
+        /* --- VISUALIZADOR DE PDF --- */
         #pdf-container {
             display: none; 
             flex-direction: column;
-            align-items: center; /* Centraliza horizontalmente */
-            justify-content: flex-start;
+            align-items: center;
             width: 100%;
-            background-color: transparent; /* Remove fundo extra se houver */
         }
 
         .pdf-page {
             position: relative;
-            width: 100%; /* Força a ocupar a largura total */
+            width: 100%;
             display: flex;
             justify-content: center;
-            line-height: 0; /* Remove espaço de fonte */
-            font-size: 0;
-            margin: 0;
-            padding: 0;
-            border: none;
+            line-height: 0;
         }
 
         canvas {
             display: block;
-            width: 100% !important; /* Garante que estique na tela do celular */
-            height: auto !important; /* Mantém a proporção correta */
-            object-fit: contain;
+            width: 100% !important;
+            height: auto !important;
         }
 
-        /* --- BLOQUEIO DE IMPRESSÃO --- */
-        @media print {
-            body { display: none !important; }
+        /* --- SEÇÃO DE BOTÕES FINAIS --- */
+        #download-area {
+            display: none; /* Escondido até o PDF carregar */
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+            gap: 20px;
+            background: rgba(0, 0, 0, 0.5);
         }
 
-        /* --- LOADER --- */
-        .loader {
-            display: none;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #8a2be2;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin: 10px auto;
+        .download-btn {
+            width: 100%;
+            max-width: 350px;
+            padding: 15px;
+            text-align: center;
+            text-decoration: none;
+            color: white;
+            font-weight: bold;
+            border-radius: 8px;
+            background: linear-gradient(90deg, #1a0b2e, #5e18a8);
+            border: 1px solid #8a2be2;
+            transition: 0.3s;
+            box-shadow: 0 4px 15px rgba(138, 43, 226, 0.3);
         }
+
+        .download-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px #8a2be2;
+            background: linear-gradient(90deg, #5e18a8, #8a2be2);
+        }
+
+        .download-btn span {
+            display: block;
+            font-size: 12px;
+            font-weight: normal;
+            margin-top: 5px;
+            color: #d8b4fe;
+        }
+
+        /* --- OUTROS --- */
+        .error-msg { color: #ff3333; margin-top: 10px; font-size: 14px; display: none; }
+        .loader { display: none; border: 4px solid #f3f3f3; border-top: 4px solid #8a2be2; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 10px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @media print { body { display: none !important; } }
         
     </style>
 </head>
@@ -179,52 +182,61 @@
             <img src="https://i.postimg.cc/ydGP1k9g/Picsart-25-12-28-01-59-54-394.jpg" alt="Logo" class="logo">
             <h2>Área Restrita</h2>
             <input type="password" id="passwordInput" placeholder="Digite a senha de acesso">
-            <button onclick="checkLogin()">Entrar</button>
+            <button class="btn-login" onclick="checkLogin()">Entrar</button>
             <div class="loader" id="loader"></div>
             <p class="error-msg" id="errorMsg">Senha incorreta!</p>
         </div>
     </div>
 
-    <div id="pdf-container">
+    <div id="pdf-container"></div>
+
+    <div id="download-area">
+        <h3 style="margin-bottom: 10px; color: #d8b4fe;">Downloads Exclusivos</h3>
+        
+        <a href="https://play.google.com/store/apps/details?id=apps.redpi.touchscreenrepair" target="_blank" class="download-btn">
+            Baixar calibrador de tela
+            <span>Clique aqui para abrir na Play Store</span>
+        </a>
+
+        <a href="https://www.mediafire.com/file/3hs9y78meg91v61/Performanc%252Bfps_e_Otimiza%25C3%25A7%25C3%25A3o1%255BBrevent%255D.zip/file" target="_blank" class="download-btn">
+            Baixar Otimização Brevent
+            <span>Clique aqui para baixar via MediaFire</span>
+        </a>
+        
+        <p style="font-size: 10px; color: #555; margin-top: 20px;">MTZADA © 2025</p>
     </div>
 
     <script>
-        // CONFIGURAÇÕES DE SENHA
         const SITE_PASS = "mtzadas01";
         const PDF_PASS = "lucaspatodotheus"; 
         const PDF_FILE = "sensi.pdf";
 
-        // --- FUNÇÃO DE LOGIN ---
         function checkLogin() {
             const input = document.getElementById('passwordInput');
             const error = document.getElementById('errorMsg');
             const loader = document.getElementById('loader');
 
             if (input.value === SITE_PASS) {
-                // Senha correta
                 error.style.display = 'none';
                 loader.style.display = 'block';
                 
-                // Inicia carregamento do PDF
                 setTimeout(() => {
                     document.getElementById('login-screen').style.display = 'none';
                     document.getElementById('pdf-container').style.display = 'flex';
+                    // Mostra a área de download
+                    document.getElementById('download-area').style.display = 'flex';
                     loadPDF();
                 }, 1000); 
             } else {
-                // Senha incorreta
                 error.style.display = 'block';
                 input.value = '';
                 input.focus();
             }
         }
 
-        // --- CARREGAMENTO DO PDF ---
         async function loadPDF() {
             const container = document.getElementById('pdf-container');
-            
             try {
-                // Carrega o documento usando a senha interna
                 const loadingTask = pdfjsLib.getDocument({
                     url: PDF_FILE,
                     password: PDF_PASS 
@@ -232,21 +244,12 @@
 
                 const pdf = await loadingTask.promise;
 
-                // Renderiza todas as páginas
                 for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                     const page = await pdf.getPage(pageNum);
-                    
-                    // ESCALA MAIOR: Gera a imagem com alta qualidade
                     const viewport = page.getViewport({ scale: 2.0 });
-                    
-                    // Cria div para a página
                     const pageDiv = document.createElement('div');
                     pageDiv.className = 'pdf-page';
                     
-                    // ATENÇÃO: Removemos a definição fixa de altura/largura aqui (px)
-                    // Deixamos o CSS controlar o tamanho (100% width)
-
-                    // Cria Canvas
                     const canvas = document.createElement('canvas');
                     const context = canvas.getContext('2d');
                     canvas.height = viewport.height;
@@ -255,37 +258,24 @@
                     pageDiv.appendChild(canvas);
                     container.appendChild(pageDiv);
 
-                    // Desenha o PDF no canvas
                     await page.render({
                         canvasContext: context,
                         viewport: viewport
                     }).promise;
                 }
-
             } catch (error) {
-                alert("Erro ao carregar o PDF. Verifique se o arquivo 'sensi.pdf' está na mesma pasta.");
+                alert("Erro ao carregar o PDF.");
                 console.error(error);
             }
         }
 
-        // --- BLOQUEIOS DE DEV (DETERRENTES) ---
+        // Bloqueios básicos
         document.addEventListener('contextmenu', event => event.preventDefault());
-
         document.onkeydown = function(e) {
-            if (e.keyCode == 123) { return false; } 
-            if (e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) { return false; } 
-            if (e.ctrlKey && e.shiftKey && e.keyCode == 'C'.charCodeAt(0)) { return false; } 
-            if (e.ctrlKey && e.shiftKey && e.keyCode == 'J'.charCodeAt(0)) { return false; } 
-            if (e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) { return false; } 
-            if (e.ctrlKey && e.keyCode == 'S'.charCodeAt(0)) { return false; } 
-            if (e.ctrlKey && e.keyCode == 'P'.charCodeAt(0)) { return false; } 
+            if (e.keyCode == 123 || (e.ctrlKey && e.shiftKey && (e.keyCode == 73 || e.keyCode == 67 || e.keyCode == 74)) || (e.ctrlKey && (e.keyCode == 85 || e.keyCode == 83 || e.keyCode == 80))) {
+                return false;
+            }
         }
-
-        setInterval(() => {
-            console.clear();
-            console.log("%c ACESSO RESTRITO - MTZADA", "color: #8a2be2; font-size: 20px; font-weight: bold;");
-        }, 2000);
-
     </script>
 </body>
 </html>
