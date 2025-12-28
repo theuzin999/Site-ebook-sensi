@@ -128,17 +128,18 @@
             display: none; /* Escondido até logar */
             flex-direction: column;
             align-items: center;
-            padding: 20px 0;
+            padding: 0; /* REMOVIDO O PADDING VERTICAL */
             width: 100%;
             position: relative;
         }
 
         .pdf-page {
             position: relative;
-            margin-bottom: 20px;
-            box-shadow: 0 0 20px rgba(138, 43, 226, 0.3);
-            border: 1px solid #333;
+            margin-bottom: 0; /* REMOVIDA A MARGEM INFERIOR */
+            box-shadow: none; /* REMOVIDA A SOMBRA */
+            border: none; /* REMOVIDA A BORDA */
             max-width: 100%;
+            line-height: 0; /* Garante que não haja espaço extra abaixo do canvas */
         }
 
         canvas {
@@ -231,7 +232,7 @@
                 for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                     const page = await pdf.getPage(pageNum);
                     
-                    // Ajusta escala (zoom)
+                    // Ajusta escala (zoom) - Aumentei um pouco para cobrir melhor a tela
                     const viewport = page.getViewport({ scale: 1.5 });
                     
                     // Cria div para a página
@@ -245,10 +246,6 @@
                     const context = canvas.getContext('2d');
                     canvas.height = viewport.height;
                     canvas.width = viewport.width;
-
-                    /* REMOVIDA A CRIAÇÃO DA CAMADA DE MARCA D'ÁGUA 
-                       PARA MELHORAR A LEITURA 
-                    */
 
                     pageDiv.appendChild(canvas);
                     container.appendChild(pageDiv);
